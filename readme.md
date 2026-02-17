@@ -13,7 +13,8 @@ For Lib:
 Implements as lib craite smart_home
 
     Discribe type: SmartTermometr. The type must provide:
-        Constructor takes fields values and returns current temperature (random value). 
+        Constructor takes fields values
+        Returns current temperature (random value). 
     
     Describe type: SmartSocket. The type must provide:
         Constructor takes fields values.
