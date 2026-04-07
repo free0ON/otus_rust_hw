@@ -1,6 +1,6 @@
 [package]
 name = "smart_home"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Dmitry Lozovoy"]
 description = "Otus Rust Developer Homework: Smart house library"

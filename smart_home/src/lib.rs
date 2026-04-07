@@ -1,32 +1,28 @@
-use core::panic;
 use std::fmt::{self, Display};
 pub struct Home<'a> {
     id: usize,
     name: String,
-    rooms: &'a mut [&'a mut Room<'a>],
+    rooms: &'a mut [Room<'a>],
 }
 
 impl<'a> Home<'a> {
-    pub fn new(_id: usize, _name: String, _rooms: &'a mut [&'a mut Room<'a>]) -> Self {
+    pub fn new(_id: usize, _name: &str, _rooms: &'a mut [Room<'a>]) -> Self {
         Self {
             id: _id,
-            name: _name,
+            name: _name.to_string(),
             rooms: _rooms,
         }
     }
-    pub fn get_room(&self, index: usize) -> &Room<'_> {
-        if index < self.rooms.len() {
-            self.rooms[index]
-        } else {
-            panic!("Room index is outbounded")
-        }
+    pub fn get_room(&self, index: usize) -> &Room<'a> {
+        self.rooms
+            .get(index)
+            .unwrap_or_else(|| panic!("Room index is outbounded"))
     }
-    pub fn get_mut_room(&'a mut self, index: usize) -> &'a mut Room<'a> {
-        if index < self.rooms.len() {
-            self.rooms[index]
-        } else {
-            panic!("Room index is outbouded")
-        }
+
+    pub fn get_mut_room(&mut self, index: usize) -> &mut Room<'a> {
+        self.rooms
+            .get_mut(index)
+            .unwrap_or_else(|| panic!("Room index is outbouded"))
     }
 
     pub fn update(&mut self) {
@@ -35,6 +31,10 @@ impl<'a> Home<'a> {
                 device.update();
             }
         }
+    }
+
+    pub fn report(&self) {
+        println!("{}", self);
     }
 }
 
@@ -66,10 +66,10 @@ pub struct Room<'a> {
 }
 
 impl<'a> Room<'a> {
-    pub fn new(_id: usize, _name: String, _devices: &'a mut [Device]) -> Self {
+    pub fn new(_id: usize, _name: &str, _devices: &'a mut [Device]) -> Self {
         Self {
             id: _id,
-            name: _name,
+            name: _name.to_string(),
             devices: _devices,
         }
     }
@@ -82,7 +82,7 @@ impl<'a> Room<'a> {
         }
     }
 
-    pub fn get_mut_device(&'a mut self, index: usize) -> &'a mut Device {
+    pub fn get_mut_device(&mut self, index: usize) -> &mut Device {
         if index < self.devices.len() {
             &mut self.devices[index]
         } else {
@@ -114,21 +114,21 @@ impl<'a> Display for Room<'a> {
 
 #[derive(Debug)]
 pub enum Device {
-    ThermometrDevice(Thermometr),
+    ThermometerDevice(Thermometer),
     SocketDevice(Socket),
 }
 
 impl Device {
     pub fn update(&mut self) {
         match self {
-            Device::ThermometrDevice(thermometr) => thermometr.update_temperature(),
+            Device::ThermometerDevice(thermometer) => thermometer.update_temperature(),
             Device::SocketDevice(socket) => socket.update_power(),
         }
     }
 
     pub fn set_state(&mut self, state: SocketState) {
         match self {
-            Device::ThermometrDevice(thermometr) => thermometr.update_temperature(),
+            Device::ThermometerDevice(thermometer) => thermometer.update_temperature(),
             Device::SocketDevice(socket) => {
                 socket.update_power();
                 socket.set_state(state);
@@ -136,15 +136,25 @@ impl Device {
         }
     }
 
-    pub fn get_state(&mut self) -> SocketState {
+    pub fn get_state(&mut self) -> Option<SocketState> {
         match self {
-            Device::ThermometrDevice(thermometr) => {
-                thermometr.update_temperature();
-                SocketState::Off
+            Device::ThermometerDevice(thermometer) => {
+                thermometer.update_temperature();
+                None
             }
             Device::SocketDevice(socket) => {
                 socket.update_power();
-                socket.state
+                Some(socket.state)
+            }
+        }
+    }
+
+    pub fn get_power(&mut self) -> Option<f32> {
+        match self {
+            Device::ThermometerDevice(_) => None,
+            Device::SocketDevice(socket) => {
+                socket.update_power();
+                Some(socket.power)
             }
         }
     }
@@ -153,14 +163,14 @@ impl Device {
 impl fmt::Display for Device {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Device::ThermometrDevice(thermometr) => writeln!(f, "{}", thermometr),
+            Device::ThermometerDevice(thermometer) => writeln!(f, "{}", thermometer),
             Device::SocketDevice(socket) => writeln!(f, "{}", socket),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Thermometr {
+pub struct Thermometer {
     id: usize,
     name: String,
     temperature: f32,
@@ -168,11 +178,11 @@ pub struct Thermometr {
     max_temperature: f32,
 }
 
-impl Thermometr {
-    pub fn new(_id: usize, _name: String, _min_temperature: f32, _max_temperature: f32) -> Self {
+impl Thermometer {
+    pub fn new(_id: usize, _name: &str, _min_temperature: f32, _max_temperature: f32) -> Self {
         Self {
             id: _id,
-            name: _name,
+            name: _name.to_string(),
             temperature: 0.0,
             min_temperature: _min_temperature,
             max_temperature: _max_temperature,
@@ -188,9 +198,17 @@ impl Thermometr {
 
         self.temperature
     }
+
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }
 
-impl PartialEq for Thermometr {
+impl PartialEq for Thermometer {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
             && self.name == other.name
@@ -199,7 +217,7 @@ impl PartialEq for Thermometr {
     }
 }
 
-impl Display for Thermometr {
+impl Display for Thermometer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -225,10 +243,10 @@ pub struct Socket {
 }
 
 impl Socket {
-    pub fn new(_id: usize, _name: String, _state: SocketState, _max_power: f32) -> Self {
+    pub fn new(_id: usize, _name: &str, _state: SocketState, _max_power: f32) -> Self {
         Socket {
             id: _id,
-            name: _name,
+            name: _name.to_string(),
             state: _state,
             power: 0.0,
             max_power: _max_power,
@@ -255,6 +273,14 @@ impl Socket {
             SocketState::On => self.power = rand::random_range(0.0..self.max_power),
         }
     }
+
+    pub fn get_name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
 }
 
 impl Display for Socket {
@@ -276,23 +302,21 @@ impl PartialEq for Socket {
 #[cfg(test)]
 mod tests {
 
-    use crate::{Device, Home, Room, Socket, SocketState, Thermometr};
+    use crate::{Device, Home, Room, Socket, SocketState, Thermometer};
     #[test]
     fn thermometr_test() {
-        let mut term1 = Thermometr::new(1, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let term2 = Thermometr::new(2, "Virtual thermometr".to_string(), -50.0, 50.0);
+        let mut term1 = Thermometer::new(1, "Virtual thermometer", -50.0, 50.0);
+        let term2 = Thermometer::new(2, "Virtual thermometer", -50.0, 50.0);
         term1.update_temperature();
-        // println!("{}", term1);
         assert!(term1 != term2);
     }
 
     #[test]
     fn socket_test() {
-        let mut socket1 = Socket::new(1, "Virtual socket".to_string(), SocketState::On, 1000.0);
-        let mut socket2 = Socket::new(2, "Virtual socket".to_string(), SocketState::Off, 1000.0);
+        let mut socket1 = Socket::new(1, "Virtual socket", SocketState::On, 1000.0);
+        let mut socket2 = Socket::new(2, "Virtual socket", SocketState::Off, 1000.0);
         socket1.update_power();
         socket2.update_power();
-        // println!("{}", socket1);
         assert!(socket1 != socket2);
         assert!(socket2.get_power() == 0.0);
         assert!(socket1.get_power() != 0.0);
@@ -300,76 +324,103 @@ mod tests {
 
     #[test]
     fn room_test() {
-        let term1 = Thermometr::new(1, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let term2 = Thermometr::new(2, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let socket1 = Socket::new(1, "Virtual socket".to_string(), SocketState::On, 1000.0);
-        let socket2 = Socket::new(2, "Virtual socket".to_string(), SocketState::Off, 1000.0);
+        let term1 = Thermometer::new(1, "Virtual thermometer", -50.0, 50.0);
+        let term2 = Thermometer::new(2, "Virtual thermometer", -50.0, 50.0);
+        let socket1 = Socket::new(1, "Virtual socket", SocketState::On, 1000.0);
+        let socket2 = Socket::new(2, "Virtual socket", SocketState::Off, 1000.0);
         let mut devices = [
-            Device::ThermometrDevice(term1),
-            Device::ThermometrDevice(term2),
+            Device::ThermometerDevice(term1),
+            Device::ThermometerDevice(term2),
             Device::SocketDevice(socket1),
             Device::SocketDevice(socket2),
         ];
-        let room1 = Room::new(1, "Kitchen".to_string(), &mut devices);
-        // assert!(term1.dyn_eq(room1.get_device(0)));
+        let room1 = Room::new(1, "Kitchen", &mut devices);
         println!("{}", room1);
-        // println!("{}", room1.get_device(0).report().as_str());
     }
 
     #[test]
     fn home_test() {
-        let term1 = Thermometr::new(1, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let term2 = Thermometr::new(2, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let socket1 = Socket::new(1, "Virtual socket".to_string(), SocketState::On, 1000.0);
-        let socket2 = Socket::new(2, "Virtual socket".to_string(), SocketState::Off, 1000.0);
+        let term1 = Thermometer::new(1, "Virtual thermometer", -50.0, 50.0);
+        let term2 = Thermometer::new(2, "Virtual thermometer", -50.0, 50.0);
+
+        let socket1 = Socket::new(1, "Virtual socket", SocketState::On, 1000.0);
+        let socket2 = Socket::new(2, "Virtual socket", SocketState::Off, 1000.0);
 
         let mut devices1 = [
-            Device::ThermometrDevice(term1),
-            Device::ThermometrDevice(term2),
+            Device::ThermometerDevice(term1),
+            Device::ThermometerDevice(term2),
             Device::SocketDevice(socket1),
             Device::SocketDevice(socket2),
         ];
-        let mut room1 = Room::new(1, "Kitchen".to_string(), &mut devices1);
+        let room1 = Room::new(1, "Kitchen", &mut devices1);
 
-        let term3 = Thermometr::new(3, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let term4 = Thermometr::new(4, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let socket3 = Socket::new(3, "Virtual socket".to_string(), SocketState::On, 1000.0);
-        let socket4 = Socket::new(4, "Virtual socket".to_string(), SocketState::Off, 1000.0);
+        let term3 = Thermometer::new(3, "Virtual thermometer", -50.0, 50.0);
+        let term4 = Thermometer::new(4, "Virtual thermometer", -50.0, 50.0);
+        let socket3 = Socket::new(3, "Virtual socket", SocketState::On, 1000.0);
+        let socket4 = Socket::new(4, "Virtual socket", SocketState::Off, 1000.0);
         let mut devices2 = [
-            Device::ThermometrDevice(term3),
-            Device::ThermometrDevice(term4),
+            Device::ThermometerDevice(term3),
+            Device::ThermometerDevice(term4),
             Device::SocketDevice(socket3),
             Device::SocketDevice(socket4),
         ];
-        let mut room2 = Room::new(2, "Hall".to_string(), &mut devices2);
+        let room2 = Room::new(2, "Hall", &mut devices2);
 
-        let rooms = &mut [&mut room1, &mut room2];
-        let mut home = Home::new(1, "My home".to_string(), rooms);
+        let rooms = &mut [room1, room2];
+        let mut home = Home::new(1, "My home", rooms);
         let room = home.get_mut_room(1);
         let device = room.get_mut_device(2);
         device.update();
         println!("{}", device);
-        assert!(device.get_state() == SocketState::On);
-        device.set_state(SocketState::Off);
+        match device.get_state() {
+            Some(state) => {
+                assert!(state == SocketState::On);
+            }
+            _ => {
+                panic!("Device is not a socket");
+            }
+        }
         println!("{}", device);
-        assert!(device.get_state() == SocketState::Off);
+        device.update();
+    }
+
+    #[test]
+    fn can_turn_off_socket_through_home_mut_refs() {
+        let mut kitchen_devices = [Device::SocketDevice(Socket::new(
+            1,
+            "coffee",
+            SocketState::On,
+            800.0,
+        ))];
+        let mut rooms = [Room::new(1, "kitchen", &mut kitchen_devices)];
+        let mut home = Home::new(1, "home", &mut rooms);
+
+        home.get_mut_room(0)
+            .get_mut_device(0)
+            .set_state(SocketState::Off);
+
+        let socket_after = home.get_mut_room(0).get_mut_device(0);
+        match socket_after.get_state() {
+            Some(state) => assert!(state == SocketState::Off),
+            _ => panic!("Device is not a socket"),
+        }
     }
 
     #[test]
     #[should_panic]
     fn test_panic_out_of_bound() {
-        let term1 = Thermometr::new(1, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let term2 = Thermometr::new(2, "Virtual thermometr".to_string(), -50.0, 50.0);
-        let socket1 = Socket::new(1, "Virtual socket".to_string(), SocketState::On, 1000.0);
-        let socket2 = Socket::new(2, "Virtual socket".to_string(), SocketState::Off, 1000.0);
+        let term1 = Thermometer::new(1, "Virtual thermometer", -50.0, 50.0);
+        let term2 = Thermometer::new(2, "Virtual thermometer", -50.0, 50.0);
+        let socket1 = Socket::new(1, "Virtual socket", SocketState::On, 1000.0);
+        let socket2 = Socket::new(2, "Virtual socket", SocketState::Off, 1000.0);
 
         let mut devices = [
-            Device::ThermometrDevice(term1),
-            Device::ThermometrDevice(term2),
+            Device::ThermometerDevice(term1),
+            Device::ThermometerDevice(term2),
             Device::SocketDevice(socket1),
             Device::SocketDevice(socket2),
         ];
-        let room = Room::new(1, "Kitchen".to_string(), &mut devices);
+        let room = Room::new(1, "Kitchen", &mut devices);
 
         room.get_device(99);
     }
