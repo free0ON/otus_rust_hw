@@ -1,5 +1,5 @@
-# set action name 
-name: hw01 build 
+# hw01 CI/CD ginhub action 
+name: hw01
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
     branches: [ "hw01" ]
 
 env:
-  CARGO_TERM_COLOR: never
+  CARGO_TERM_COLOR: auto
 
 jobs:
   build_test_example:
