@@ -1,4 +1,5 @@
-name: hw01 build test and run example 
+# set action name 
+name: hw01 build 
 
 on:
   push:
@@ -7,10 +8,10 @@ on:
     branches: [ "hw01" ]
 
 env:
-  CARGO_TERM_COLOR: auto
+  CARGO_TERM_COLOR: never
 
 jobs:
-  build:
+  build test and run example:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -24,4 +25,3 @@ jobs:
         run: cargo test --verbose
       - name: Run example
         run: cargo run --example home
-        
