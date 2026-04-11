@@ -1,14 +1,14 @@
 [package]
 name = "smart_home"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 authors = ["Dmitry Lozovoy"]
 description = "Otus Rust Developer Homework: Smart home library"
 readme = "../readme.md"
-repository = "https://github.com/free0ON/otus_rust_hw"
+repository = "https://github.com/free0ON/otus_rust_hw.git"
 
 [[example]]
-name = "home"
+name = "hw02"
 crate-type = ["bin"]
 
 [dependencies]

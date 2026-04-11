@@ -1,3 +1,5 @@
+// OTUS Rust hw02 0.2.0
+// smart_home library refactoring
 use std::fmt::{self, Display};
 pub struct Home<'a> {
     id: usize,

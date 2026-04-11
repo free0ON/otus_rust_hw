@@ -1,56 +1,40 @@
 # Otus Rust Developer Homeworks
-## Homework 1
-Template for crate Smart Home
+## Homework 2
+Refactoring the Smart Home crate
 Goals:
 
-Make template for crate SmartHome and write demo exampls. 
+Refactorings Smart Home crate with Rust std library 
 
 Step by step instructions:
 
-The crate and example in one package.
+Add error handling
 
-For Lib:
-Implements as lib craite smart_home
+Panic -> return Option in getter room by key
+Panic -> return Option in getter device by key
 
-    Discribe type: SmartTermometr. The type must provide:
-        Constructor takes fields values
-        Returns current temperature (random value). 
-    
-    Describe type: SmartSocket. The type must provide:
-        Constructor takes fields values.
-        On/off + get state.
-        Get power: if off - 0, else - random value  
+Refactor objects storage:
 
-    Describe type: SmartDevice. The type must content one of device (SmartTermometr or SmartSocket) and provide:
-        Print state info about device.
-    
-    Describe type: RoomSmartDevices. The type must provide:
-        Constructor takes fields valuies.
-        Get referense to device by index
-        Get mut reference to device by index
-        Print report info about all devices in the room
-    
-    Descripe type: SmartHome. The type must provide:
-        Constructor takes rooms vector.
-        Get reference to room by index
-        Get mut referense to room by index
-        Print report info about all rooms
-        
-    Array size is variable
-    
-    In case of outbouded array index application close with panic!
+    * Replace &[] devices and rooms with std collections. Use string as key.
+    * Implement Debug trait with all custom types
+    * Implement dynamic add/delete device in to Room
+    * Implement dymanic add/delete room in to Home
+    * Implement device reference getter for Home. Getter should get room name and device name. In case device not found return error with details. Error should implement trait std::error::Error 
+    * Implement trait From to convert objects Sockets and Thermometers in to SmartDevice objects.
+    * Create macros for simple room construct. It gets tuples (key, Socket) or (key, Thermometer) and return Room with all devices with keys.
 
+Refactor report generator:
+    * Make report method in trait and implement it with all custom types: SmartDevice, Room, Home
 
-For Example:
-    
-    Implements as bin crate.
-    Make an object of SmartHome and print report about it.
-    For this object off one SmartSocket in some Room and update report
-    
+Refactor tests with new features.
+
+Refactor example application:
+    * Dynamic add/delete room
+    * Dynamic add/delete device
+    * Add function witch get any object with report create ability. Make with this function report by some home, some room, some device
+    * Show error handling features
+
 Acceptance:
-
-    Package sucsessfully build without errors
-    Example sucsessfully run and print the report about a SmartHome
-    Cargo clippy and cargo fmt --check without errors and warnings
-    All tests passed
-    
+    * Package sucsessfully build without errors
+    * Example sucsessfully run and print the report about a SmartHome
+    * Cargo clippy and cargo fmt --check without errors and warnings
+    * All tests passed
