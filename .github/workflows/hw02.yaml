@@ -24,4 +24,4 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
       - name: Run example
-        run: cargo run --example home
+        run: cargo run --example hw02
