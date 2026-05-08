@@ -1,0 +1,27 @@
+# hw02 CI/CD ginhub action 
+name: hw02
+
+on:
+  push:
+    branches: [ "hw02" ]
+  pull_request:
+    branches: [ "hw02" ]
+
+env:
+  CARGO_TERM_COLOR: auto
+
+jobs:
+  build_test_example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        run: cargo build --verbose
+      - name: cargo clippy
+        run: cargo clippy
+      - name: cargo fmt --check
+        run: cargo fmt --check
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Run example
+        run: cargo run --example home
