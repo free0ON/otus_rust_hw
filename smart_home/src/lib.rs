@@ -1,10 +1,12 @@
-// OTUS Rust hw02 0.2.1
-// smart_home library refactoring
+// OTUS Rust hw03 0.3.0
+// Implement async network communication with device simulator
 use std::any::Any;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::fmt::{self, Display};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 
 pub trait Reportable {
     fn report(&self) -> String;
@@ -37,8 +39,8 @@ impl Home {
         self.rooms.get(index).map(|room| room.as_ref())
     }
 
-    pub fn get_mut_room(&mut self, index: &str) -> Option<&mut Box<Room>> {
-        self.rooms.get_mut(index)
+    pub fn get_mut_room(&mut self, index: &str) -> Option<&mut Room> {
+        self.rooms.get_mut(index).map(|room| room.as_mut())
     }
 
     pub fn update(&mut self) {
@@ -155,8 +157,8 @@ impl Room {
         self.devices.get(index).map(|device| device.as_ref())
     }
 
-    pub fn get_mut_device(&mut self, index: &str) -> Option<&mut Box<dyn Device>> {
-        self.devices.get_mut(index)
+    pub fn get_mut_device(&mut self, index: &str) -> Option<&mut dyn Device> {
+        self.devices.get_mut(index).map(|device| device.as_mut())
     }
 
     pub fn update(&mut self) {
@@ -290,16 +292,24 @@ pub struct Thermometer {
     temperature: f32,
     min_temperature: f32,
     max_temperature: f32,
+    client: UdpSocket,
 }
 
 impl Thermometer {
-    pub fn new(_id: &str, _name: &str, _min_temperature: f32, _max_temperature: f32) -> Self {
+    pub fn new(
+        _id: &str,
+        _name: &str,
+        _min_temperature: f32,
+        _max_temperature: f32,
+        client: &str,
+    ) -> Self {
         Self {
             id: _id.to_string(),
             name: _name.to_string(),
             temperature: 0.0,
             min_temperature: _min_temperature,
             max_temperature: _max_temperature,
+            client: UdpSocket::bind(client).unwrap(),
         }
     }
 
@@ -360,22 +370,41 @@ pub struct Socket {
     state: SocketState,
     power: f32,
     max_power: f32,
+    address: String,
+    remote_connection: TcpStream,
 }
 
 impl Socket {
-    pub fn new(_id: &str, _name: &str, _state: SocketState, _max_power: f32) -> Self {
+    pub fn new(
+        _id: &str,
+        _name: &str,
+        _state: SocketState,
+        _max_power: f32,
+        _address: &str,
+    ) -> Self {
         Socket {
             id: _id.to_string(),
             name: _name.to_string(),
             state: _state,
             power: 0.0,
             max_power: _max_power,
+            address: _address.to_string(),
+            remote_connection: {
+                match TcpStream::connect(_address) {
+                    Ok(connection) => connection,
+                    Err(err) => panic!("{err}"),
+                }
+            },
         }
     }
 
     pub fn set_state(&mut self, _state: SocketState) {
         self.state = _state;
         self.update_power();
+        match _state {
+            SocketState::On => self.remote_connection.write("ON".as_bytes()).unwrap(),
+            SocketState::Off => self.remote_connection.write("OFF".as_bytes()).unwrap(),
+        };
     }
 
     pub fn get_state(&self) -> Option<SocketState> {

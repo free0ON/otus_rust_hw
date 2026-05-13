@@ -1,15 +1,30 @@
 [package]
 name = "smart_home"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["Dmitry Lozovoy"]
 description = "Otus Rust Developer Homework: Smart home library"
 readme = "../readme.md"
 repository = "https://github.com/free0ON/otus_rust_hw.git"
+build = "build.rs"
+[[bin]]
+name = "thermometr_sim"
+path = "src/bin/thermometr_sim.rs"
+#build = "build.rs"
+
+[build]
+target-dir = "target/debug"
+
+[[bin]]
+name = "socket_sim"
+path = "src/bin/socket_sim.rs"
 
 [[example]]
-name = "hw02"
+name = "hw03"
 crate-type = ["bin"]
+
 
 [dependencies]
 rand = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+toml = "1.1"

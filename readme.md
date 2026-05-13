@@ -1,43 +1,48 @@
 # Otus Rust Developer Homeworks
-## Homework 2
+## Homework 3
+
 Refactoring the Smart Home crate
 Goals:
 
-Refactoring Smart Home crate with Rust std library 
+Implement remote communication features for Socket and Thermometer and create  device simulator for tests
 
 Step by step instructions:
 
-Add error handling
+Socket:
 
-    x Panic -> return Option in getter room by key
-    x Panic -> return Option in getter device by key
+    * Has same basic functions: on/off + get_power
+    * Sync communication via TCP
+    * A Socket can use real TCP update and simulated (for test)
 
-Refactor objects storage:
+Socket simulator:
 
-    x Replace &[] devices and rooms with std collections. Use string as key.
-    x Implement Debug trait with all custom types
-    x Implement dynamic add/delete device in to Room
-    x Implement dymanic add/delete room in to Home
-    x Implement device reference getter for Home. Getter should get room name and device name. In case device not found return error with details. Error should implement trait std::error::Error 
-    x Implement trait From to convert objects Sockets and Thermometers in to SmartDevice objects.
-    x Create macros for simple room construct. It gets tuples (key, Socket) or (key, Thermometer) and return Room with all devices with keys.
+    * Read ip for TCP-connection from cli args
+    * Implemented as non block network communication
+    * It can store a socket state
+    * It can manage socket by many clients at the same time
 
-Refactor report generator:
+Thermometer:
 
-    x Make report method in trait and implement it with all custom types: SmartDevice, Room, Home
+    * Has same basic functons: get_temperature 
+    * Get temperature as UDP-pakets in parallel thread
+    * The parallel thead starts then new Thermometer created and stop then it droped
+    * Thermometer object can return last recived temperature value
+    * Thermometer can simulate remote recive temperature value (for tests)
 
-Refactor tests with new features.
+Thermometer simulator:
 
-Refactor example application:
-    
-    x Dynamic add/delete room
-    x Dynamic add/delete device
-    x Add function witch get any object with report create ability. Make with this function report by some home, some room, some device
-    x Show error handling features
+    * Implemented as non blocked network TCP-connection
+    * Read ip for send UDP-pakets and time interval sending from configuration file 
+    * Send random temperature to ip with setted interval
+
+Add new example with Smarthome, Sockets and Thermometers for work with simulators. Example should:
+
+    * Report home state if simulators are started
+    * Send error message if some device dont get data
 
 Acceptance:
-    
-    x Package sucsessfully build without errors
-    x Example sucsessfully run and print the report about a SmartHome
-    x Cargo clippy and cargo fmt --check without errors and warnings
-    x All tests passed
+
+    * Package sucsessfully build without errors
+    * Example sucsessfully run and print the report about a SmartHome
+    * Cargo clippy and cargo fmt --check without errors and warnings
+    * All tests passed
