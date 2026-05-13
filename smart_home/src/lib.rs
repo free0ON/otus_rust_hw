@@ -382,7 +382,7 @@ impl Socket {
         _max_power: f32,
         _address: &str,
     ) -> Self {
-        Socket {
+        Self {
             id: _id.to_string(),
             name: _name.to_string(),
             state: _state,
@@ -399,15 +399,43 @@ impl Socket {
     }
 
     pub fn set_state(&mut self, _state: SocketState) {
-        self.state = _state;
-        self.update_power();
-        match _state {
-            SocketState::On => self.remote_connection.write("ON".as_bytes()).unwrap(),
-            SocketState::Off => self.remote_connection.write("OFF".as_bytes()).unwrap(),
+        self.state = match _state {
+            SocketState::On => {
+                if self.remote_connection.write("SET ON".as_bytes()).is_ok() {
+                    SocketState::On
+                } else {
+                    eprintln!("Error SET ON");
+                    SocketState::Off
+                }
+            }
+            SocketState::Off => {
+                if self.remote_connection.write("SET OFF".as_bytes()).is_ok() {
+                    SocketState::Off
+                } else {
+                    eprintln!("Error SET OFF");
+                    SocketState::On
+                }
+            }
         };
+        self.update_power();
     }
 
-    pub fn get_state(&self) -> Option<SocketState> {
+    pub fn get_state(&mut self) -> Option<SocketState> {
+        if self.remote_connection.write("GET STATE".as_bytes()).is_ok() {
+            let mut buffer = [0; 1024];
+            if let Ok(size) = self.remote_connection.read(&mut buffer) {
+                if let Ok(state_str) = std::str::from_utf8(&buffer[..size]) {
+                    match state_str.trim() {
+                        "ON" => self.state = SocketState::On,
+                        "OFF" => self.state = SocketState::Off,
+                        _ => {
+                            eprintln!("Unknown state received: {state_str}");
+                            return None;
+                        }
+                    }
+                }
+            }
+        }
         Some(self.state)
     }
 
@@ -417,6 +445,17 @@ impl Socket {
     }
 
     pub fn update_power(&mut self) {
+        if self.remote_connection.write("GET POWER".as_bytes()).is_ok() {
+            let mut buffer = [0; 1024];
+            if let Ok(size) = self.remote_connection.read(&mut buffer) {
+                if let Ok(power_str) = std::str::from_utf8(&buffer[..size]) {
+                    if let Ok(power) = power_str.trim().parse::<f32>() {
+                        self.power = power;
+                        return;
+                    }
+                }
+            }
+        }
         match self.state {
             SocketState::Off => self.power = 0.0,
             SocketState::On => self.power = rand::random_range(0.0..self.max_power),
@@ -482,18 +521,35 @@ mod tests {
     use super::*;
     use crate::{Device, Home, Room, Socket, SocketState, Thermometer};
     use std::collections::HashMap;
+
+    static THERMOMETR_ADDRESS: &str = "127.0.0.1:8080";
+    static SOCKET_ADDRESS: &str = "127.0.0.1:8081";
+
     #[test]
     fn thermometer_test() {
-        let mut term1 = Thermometer::new("1", "Virtual thermometer", -50.0, 50.0);
-        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0);
+        let mut term1 =
+            Thermometer::new("1", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
         term1.update_temperature();
         assert!(term1 != term2);
     }
 
     #[test]
     fn socket_test() {
-        let mut socket1 = Socket::new("1", "Virtual socket", SocketState::On, 1000.0);
-        let mut socket2 = Socket::new("2", "Virtual socket", SocketState::Off, 1000.0);
+        let mut socket1 = Socket::new(
+            "1",
+            "Virtual socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
+        let mut socket2 = Socket::new(
+            "2",
+            "Virtual socket",
+            SocketState::Off,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         socket1.update_power();
         socket2.update_power();
         assert!(socket1 != socket2);
@@ -503,10 +559,22 @@ mod tests {
 
     #[test]
     fn room_test() {
-        let term1 = Thermometer::new("1", "Virtual thermometer", -50.0, 50.0);
-        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0);
-        let socket1 = Socket::new("3", "Virtual socket", SocketState::On, 1000.0);
-        let socket2 = Socket::new("4", "Virtual socket", SocketState::Off, 1000.0);
+        let term1 = Thermometer::new("1", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let socket1 = Socket::new(
+            "3",
+            "Virtual socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
+        let socket2 = Socket::new(
+            "4",
+            "Virtual socket",
+            SocketState::Off,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         let devices = HashMap::<String, Box<dyn Device>>::new();
         let mut room1 = Room::new("1", "Kitchen", devices);
         room1.add_device(term1.into());
@@ -518,17 +586,41 @@ mod tests {
 
     #[test]
     fn home_test() {
-        let term1 = Thermometer::new("1", "Virtual thermometer", -50.0, 50.0);
-        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0);
+        let term1 = Thermometer::new("1", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let term2 = Thermometer::new("2", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
 
-        let socket1 = Socket::new("3", "Virtual socket", SocketState::On, 1000.0);
-        let socket2 = Socket::new("4", "Virtual socket", SocketState::Off, 1000.0);
+        let socket1 = Socket::new(
+            "3",
+            "Virtual socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
+        let socket2 = Socket::new(
+            "4",
+            "Virtual socket",
+            SocketState::Off,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
 
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-        let term3 = Thermometer::new("5", "Virtual thermometer", -50.0, 50.0);
-        let term4 = Thermometer::new("6", "Virtual thermometer", -50.0, 50.0);
-        let socket3 = Socket::new("7", "Virtual socket", SocketState::On, 1000.0);
-        let socket4 = Socket::new("8", "Virtual socket", SocketState::Off, 1000.0);
+        let term3 = Thermometer::new("5", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let term4 = Thermometer::new("6", "Virtual thermometer", -50.0, 50.0, THERMOMETR_ADDRESS);
+        let socket3 = Socket::new(
+            "7",
+            "Virtual socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
+        let socket4 = Socket::new(
+            "8",
+            "Virtual socket",
+            SocketState::Off,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         room1.add_device(Box::<dyn Device>::from(term1));
         room1.add_device(Box::<dyn Device>::from(term2));
         room1.add_device(Box::<dyn Device>::from(socket1));
@@ -567,7 +659,13 @@ mod tests {
 
     #[test]
     fn can_turn_off_socket_through_home_mut_refs() {
-        let socket1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let socket1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
         room1.add_device(socket1.into());
         let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
@@ -591,7 +689,13 @@ mod tests {
 
     #[test]
     fn get_device_test() {
-        let socket1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let socket1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
         room1.add_device(socket1.into());
         let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
@@ -617,14 +721,26 @@ mod tests {
     #[test]
     fn add_device_test() {
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-        let socket1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let socket1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         room1.add_device(socket1.into());
         assert!(room1.get_device("1").is_some());
     }
 
     #[test]
     fn debug_test() {
-        let socket1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let socket1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
         room1.add_device(socket1.into());
         let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
@@ -648,15 +764,27 @@ mod tests {
             "Kitchen",
             (
                 "1",
-                Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0)
+                Socket::new(
+                    "1",
+                    "Coffee mashine power socket",
+                    SocketState::On,
+                    1000.0,
+                    SOCKET_ADDRESS
+                )
             ),
             (
                 "2",
-                Thermometer::new("2", "Virtual thermometer", -50.0, 50.0)
+                Thermometer::new("2", "Virtual thermometer", -50.0, 50.0, SOCKET_ADDRESS)
             ),
             (
                 "3",
-                Socket::new("3", "TV power socket", SocketState::Off, 1000.0)
+                Socket::new(
+                    "3",
+                    "TV power socket",
+                    SocketState::Off,
+                    1000.0,
+                    SOCKET_ADDRESS
+                )
             )
         );
         assert!(
@@ -669,7 +797,13 @@ mod tests {
 
     #[test]
     fn reportable_test() {
-        let socket1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let socket1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
         room1.add_device(socket1.into());
         let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
@@ -683,7 +817,13 @@ mod tests {
     fn error_handling_test() {
         let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
         let room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-        let device1 = Socket::new("1", "Coffee mashine power socket", SocketState::On, 1000.0);
+        let device1 = Socket::new(
+            "1",
+            "Coffee mashine power socket",
+            SocketState::On,
+            1000.0,
+            SOCKET_ADDRESS,
+        );
         home.add_room(room1);
         home.get_mut_room("1")
             .expect("Room not found")

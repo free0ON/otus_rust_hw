@@ -7,13 +7,10 @@ description = "Otus Rust Developer Homework: Smart home library"
 readme = "../readme.md"
 repository = "https://github.com/free0ON/otus_rust_hw.git"
 build = "build.rs"
-[[bin]]
-name = "thermometr_sim"
-path = "src/bin/thermometr_sim.rs"
-#build = "build.rs"
 
-[build]
-target-dir = "target/debug"
+[[bin]]
+name = "thermometer_sim"
+path = "src/bin/thermometer_sim.rs"
 
 [[bin]]
 name = "socket_sim"
