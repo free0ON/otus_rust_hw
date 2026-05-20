@@ -1,10 +1,7 @@
 //Otus rust hw03 Thermometer network simulator
 //v 0.3.0
 
-use rand::Rng;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::net::UdpSocket;
 
 #[derive(Deserialize, Debug)]
@@ -21,9 +18,7 @@ struct ConnectionConfig {
 
 fn simulate_temperature() -> f64 {
     // Simulate a temperature reading between 15.0 and 30.0 degrees Celsius
-    let mut rng = rand::thread_rng();
-    let temp: f64 = rng.gen_range(15.0..30.0);
-    temp
+    rand::random_range(10.0..30.0)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,27 +30,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Config file not provided".into());
     }
 
-    let config_toml_file = &args[1];
-    println!("Reading config from: {}", config_toml_file);
-    let contents = std::fs::read_to_string(config_toml_file)?;
-    let config: Config = toml::from_str(&contents)?;
-    println!("Config: {:?}", config);
+    let configs: Vec<Config> = args[1..]
+        .iter()
+        .map(|config_toml_file| {
+            println!("Reading config from: {}", config_toml_file);
+            let contents = std::fs::read_to_string(config_toml_file)?;
+            let config: Config = toml::from_str(&contents)?;
+            println!("Config: {:?}", config);
+            Ok(config)
+        })
+        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
 
-    let remote_address = format!("{}:{}", config.connection.ip, config.connection.port);
-    let connection = UdpSocket::bind("127.0.0.1:3000")?;
-    // println!("UDP connection established to {}", remote_address);
+    let connections = configs
+        .iter()
+        .map(|config| {
+            let remote_address = format!("{}:{}", config.connection.ip, config.connection.port);
+            let interval_ms = config.connection.interval_ms;
+            let connection =
+                UdpSocket::bind(format!("127.0.0.1:{}", config.connection.port + 1000))
+                    .expect("Failed to bind socket");
+            (connection, remote_address, interval_ms)
+        })
+        .collect::<Vec<(UdpSocket, String, u64)>>();
 
-    loop {
-        let temp = simulate_temperature();
-        let message = format!("{{\"temperature\": {:.2}}}", temp);
-        connection
-            .send_to(message.as_bytes(), remote_address.clone())
-            .expect("Failed to send message");
-        println!("Sent: {}", message);
-        std::thread::sleep(std::time::Duration::from_millis(
-            config.connection.interval_ms,
-        ));
-    }
+    let treads: Vec<std::thread::JoinHandle<()>> = connections
+        .into_iter()
+        .map(|(connection, remote_address, interval_ms)| {
+            std::thread::spawn(move || {
+                println!(
+                    "Starting to send data to {}:{}",
+                    remote_address,
+                    connection.local_addr().unwrap()
+                );
+                loop {
+                    let temp = simulate_temperature();
+                    let message = format!("{:.2}", temp);
+                    connection
+                        .send_to(message.as_bytes(), &remote_address)
+                        .expect("Failed to send message");
+                    println!("Send {} to {}", message, remote_address);
+                    std::thread::sleep(std::time::Duration::from_millis(interval_ms));
+                }
+            })
+        })
+        .collect();
+    treads.into_iter().for_each(|t| t.join().unwrap());
 
     Ok(())
 }
