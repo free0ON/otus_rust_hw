@@ -11,7 +11,6 @@ use std::thread;
 struct ConnectionConfig {
     ip: String,
     port: u16,
-    is_connected: Arc<Mutex<bool>>,
     state: Arc<Mutex<String>>,
     max_power: f32,
 }
@@ -26,7 +25,6 @@ impl ConnectionConfig {
         Self {
             ip: _ip,
             port: _port,
-            is_connected: Arc::new(Mutex::new(false)),
             state: Arc::new(Mutex::new(String::from("OFF"))),
             max_power: 1000.0,
         }

@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::fmt::{self, Display};
 use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::net::{TcpStream, UdpSocket};
 use std::sync::{Arc, Mutex};
 
 pub trait Reportable {
@@ -430,9 +430,11 @@ impl Display for Thermometer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Thermometer id {}, name {}, temperature {}",
+            "Thermometer id {}, name {}, address {}, update interval {}, temperature {}",
             self.id,
             self.name,
+            self.address,
+            self.update_interval_ms,
             self.get_temperature()
         )
     }
@@ -662,14 +664,12 @@ impl Display for Socket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Socket id {}, name {}, state {:?},  power {}",
+            "Socket id {}, name {}, address {}, state {:?},  power {}",
             self.id,
             self.name,
+            self.address,
             self.state,
-            self.power.lock().map(|p| *p).unwrap_or_else(|e| {
-                eprintln!("Error locking power mutex for display: {e}");
-                0.0
-            })
+            self.power.lock().map(|p| *p).unwrap_or_else(|_| { 0.0 })
         )
     }
 }
@@ -710,39 +710,10 @@ pub fn report(reportable: &dyn Reportable) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::{Device, Home, Room, Socket, SocketState, Thermometer};
     use std::collections::HashMap;
 
-    static THERMOMETR_ADDRESS1: &str = "127.0.0.1:8081";
-    static THERMOMETR_ADDRESS2: &str = "127.0.0.1:8082";
-
-    static SOCKET_ADDRESS1: &str = "127.0.0.1:7001";
-    static SOCKET_ADDRESS2: &str = "127.0.0.1:7002";
-
     static UPDATE_INTERVAL_MS: u64 = 1000_u64;
-    // #[test]
-    // fn thermometer_test() {
-    //     let term2= Thermometer::new(
-    //         "2",
-    //         "Virtual thermometer",
-    //         -50.0,
-    //         50.0,
-    //         THERMOMETR_ADDRESS1,
-    //         UPDATE_INTERVAL_MS,
-    //     );
-    //     let term3 = Thermometer::new(
-    //         "3",
-    //         "Virtual thermometer",
-    //         -50.0,
-    //         50.0,
-    //         THERMOMETR_ADDRESS2,
-    //         UPDATE_INTERVAL_MS,
-    //     );
-    //     //term1.update_temperature();
-    //     assert!(term1 != term2);
-    // }
-    //
     #[test]
     fn thermometer_get_temperature_test() {
         let term1 = Thermometer::new(
@@ -786,18 +757,6 @@ mod tests {
         println!("Temperature 2: {temp2}, Temperature 3: {temp3}");
         assert!(temp2 != temp3);
     }
-
-    // #[test]
-    // fn tcp_test() {
-    //     let mut stream = TcpStream::connect("127.0.0.1:7001").unwrap_or_else(|e| {
-    //         panic!("Failed to connect to socket simulator for tcp test: {e}");
-    //     });
-    //
-    //     // stream
-    //     //     .write_all("GET STATE".as_bytes())
-    //     //     .unwrap_or_else(|e| panic!("Failed to write to socket simulator for tcp test: {e}"));
-    // }
-    //
 
     #[test]
     fn socket_test() {
@@ -872,7 +831,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8001",
+            "127.0.0.1:8201",
             UPDATE_INTERVAL_MS,
         );
         let term2 = Thermometer::new(
@@ -880,7 +839,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8002",
+            "127.0.0.1:8202",
             UPDATE_INTERVAL_MS,
         );
 
@@ -889,14 +848,14 @@ mod tests {
             "Virtual socket",
             SocketState::On,
             1000.0,
-            "127.0.0.1:7001",
+            "127.0.0.1:7201",
         );
         let socket2 = Socket::new(
             "4",
             "Virtual socket",
             SocketState::Off,
             1000.0,
-            "127.0.0.1:7002",
+            "127.0.0.1:7202",
         );
 
         let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
@@ -905,7 +864,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8101",
+            "127.0.0.1:8203",
             UPDATE_INTERVAL_MS,
         );
         let term4 = Thermometer::new(
@@ -913,7 +872,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8102",
+            "127.0.0.1:8204",
             UPDATE_INTERVAL_MS,
         );
         let socket3 = Socket::new(
@@ -921,14 +880,14 @@ mod tests {
             "Virtual socket",
             SocketState::On,
             1000.0,
-            "127.0.0.1:7101",
+            "127.0.0.1:7203",
         );
         let socket4 = Socket::new(
             "8",
             "Virtual socket",
             SocketState::Off,
             1000.0,
-            "127.0.0.1:7102",
+            "127.0.0.1:7204",
         );
         room1.add_device(Box::<dyn Device>::from(term1));
         room1.add_device(Box::<dyn Device>::from(term2));
@@ -965,188 +924,4 @@ mod tests {
         println!("{}", device.report());
         device.update();
     }
-    //
-    // #[test]
-    // fn can_turn_off_socket_through_home_mut_refs() {
-    //     let socket1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     room1.add_device(socket1.into());
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     home.add_room(room1);
-    //     home.get_mut_room("1")
-    //         .expect("Room not found")
-    //         .get_mut_device("1")
-    //         .expect("Device not found")
-    //         .set_state(SocketState::Off);
-    //
-    //     let socket_after = home
-    //         .get_mut_room("1")
-    //         .expect("Room not found")
-    //         .get_mut_device("1")
-    //         .expect("Device non found");
-    //     match socket_after.get_state() {
-    //         Some(state) => assert!(state == SocketState::Off),
-    //         _ => panic!("Device is not a socket"),
-    //     }
-    // }
-    //
-    // #[test]
-    // fn get_device_test() {
-    //     let socket1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     room1.add_device(socket1.into());
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     home.add_room(room1);
-    //     let device = home
-    //         .get_device("1", "1")
-    //         .expect("Device not found")
-    //         .as_any()
-    //         .downcast_ref::<Socket>()
-    //         .expect("Device is not a socket");
-    //     assert!(device.get_name() == "Coffee mashine power socket");
-    //     assert!(home.get_device("1", "0").is_err());
-    // }
-    //
-    // #[test]
-    // fn add_room_test() {
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     let room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     home.add_room(room1);
-    //     assert!(home.get_room("1").is_some());
-    // }
-    //
-    // #[test]
-    // fn add_device_test() {
-    //     let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     let socket1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     room1.add_device(socket1.into());
-    //     assert!(room1.get_device("1").is_some());
-    // }
-    //
-    // #[test]
-    // fn debug_test() {
-    //     let socket1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     room1.add_device(socket1.into());
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     home.add_room(room1);
-    //     println!("{:?}", home);
-    //     println!("{:?}", home.get_room("1").expect("Room not found"));
-    //     println!(
-    //         "{:?}",
-    //         home.get_room("1")
-    //             .expect("Room not found")
-    //             .get_device("1")
-    //             .expect("Device not found")
-    //             .as_any()
-    //     );
-    // }
-    //
-    // #[test]
-    // fn test_macro_new_room() {
-    //     let room = new_room!(
-    //         "1",
-    //         "Kitchen",
-    //         (
-    //             "1",
-    //             Socket::new(
-    //                 "1",
-    //                 "Coffee mashine power socket",
-    //                 SocketState::On,
-    //                 1000.0,
-    //                 SOCKET_ADDRESS1
-    //             )
-    //         ),
-    //         (
-    //             "2",
-    //             Thermometer::new(
-    //                 "2",
-    //                 "Virtual thermometer",
-    //                 -50.0,
-    //                 50.0,
-    //                 THERMOMETR_ADDRESS1,
-    //                 UPDATE_INTERVAL_MS
-    //             )
-    //         ),
-    //         (
-    //             "3",
-    //             Socket::new(
-    //                 "3",
-    //                 "TV power socket",
-    //                 SocketState::Off,
-    //                 1000.0,
-    //                 SOCKET_ADDRESS2
-    //             )
-    //         )
-    //     );
-    //     assert!(
-    //         room.get_device("1").expect("Device not found").get_state() == Some(SocketState::On)
-    //     );
-    //     assert!(
-    //         room.get_device("3").expect("Device not found").get_state() == Some(SocketState::Off)
-    //     );
-    // }
-    //
-    // #[test]
-    // fn reportable_test() {
-    //     let socket1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     let mut room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     room1.add_device(socket1.into());
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     home.add_room(room1);
-    //     report(&home);
-    //     report(home.get_room("1").expect("Room not found"));
-    //     report(home.get_device("1", "1").expect("Device not found"));
-    // }
-    //
-    // #[test]
-    // fn error_handling_test() {
-    //     let mut home = Home::new("1", "My home", HashMap::<String, Box<Room>>::new());
-    //     let room1 = Room::new("1", "Kitchen", HashMap::<String, Box<dyn Device>>::new());
-    //     let device1 = Socket::new(
-    //         "1",
-    //         "Coffee mashine power socket",
-    //         SocketState::On,
-    //         1000.0,
-    //         SOCKET_ADDRESS1,
-    //     );
-    //     home.add_room(room1);
-    //     home.get_mut_room("1")
-    //         .expect("Room not found")
-    //         .add_device(device1.into());
-    //     assert!(home.get_device("1", "1").is_ok());
-    //     assert!(home.get_device("2", "1").is_err());
-    //     assert!(home.get_room("1").is_some());
-    //     assert!(home.get_room("2").is_none());
-    // }
 }

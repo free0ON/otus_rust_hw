@@ -1,1 +1,1 @@
-cargo run --bin thermometer_sim -- settings_term1.toml settings_term2.toml settings_term3.toml settings_term4.toml settings_term5.toml 
+cargo run --bin thermometer_sim -- settings_term1.toml settings_term2.toml settings_term3.toml settings_term4.toml settings_term5.toml settings_term6.toml settings_term7.toml settings_term8.toml settings_term9.toml 
