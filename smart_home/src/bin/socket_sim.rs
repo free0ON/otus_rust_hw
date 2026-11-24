@@ -2,10 +2,13 @@
 //v 0.3.0
 //
 use std::env::{self};
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::thread;
+//use thiserror;
+//use tracing;
+//use tracing_subscriber;
 
 #[derive(Clone)]
 struct ConnectionConfig {
@@ -66,17 +69,19 @@ fn main() {
                                 cloned_config.ip, cloned_config.port, e
                             )
                         });
+                tcp_listener.set_nonblocking(true).unwrap_or_else(|e| {
+                    panic!(
+                        "Failed to set non-blocking mode for address {}:{}: {}",
+                        cloned_config.ip, cloned_config.port, e
+                    )
+                });
                 println!(
                     "Listening for incoming connections on {}:{}",
                     cloned_config.ip, cloned_config.port
                 );
                 for stream in tcp_listener.incoming() {
-                    println!(
-                        "New client connected to {}:{}",
-                        cloned_config.ip, cloned_config.port
-                    );
                     match stream {
-                        Ok(mut stream) => loop {
+                        Ok(mut stream) => {
                             let mut buf = [0; 64];
                             match stream.read(&mut buf) {
                                 Ok(bytes_read) => {
@@ -138,13 +143,35 @@ fn main() {
                                                 0
                                             });
                                     }
+                                    "DISCONNECT" => {
+                                        let _writed =
+                                            stream.write("OK".as_bytes()).unwrap_or_else(|e| {
+                                                eprintln!("Failed to write to client: {}", e);
+                                                0
+                                            });
+                                        stream.shutdown(std::net::Shutdown::Both).unwrap_or_else(
+                                            |e| {
+                                                eprintln!(
+                                                    "Failed to shutdown client connection: {}",
+                                                    e
+                                                );
+                                            },
+                                        );
+                                    }
                                     _ => eprintln!("Uncknown request"),
                                 }
                             }
-                        },
-                        Err(e) => {
-                            eprintln!("Failed to accept client: {}", e);
                         }
+                        Err(ref e) => match e.kind() {
+                            io::ErrorKind::WouldBlock => {
+                                // No incoming connection, continue listening
+                                thread::sleep(std::time::Duration::from_millis(100));
+                                continue;
+                            }
+                            _ => {
+                                eprintln!("Failed to accept client: {}", e);
+                            }
+                        },
                     }
                 }
             })

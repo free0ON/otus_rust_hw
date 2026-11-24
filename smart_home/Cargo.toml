@@ -1,6 +1,6 @@
 [package]
 name = "smart_home"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 authors = ["Dmitry Lozovoy"]
 description = "Otus Rust Developer Homework: Smart home library"
@@ -24,4 +24,7 @@ crate-type = ["bin"]
 [dependencies]
 rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }
-toml = "1.1"
+toml = "1.2"
+thiserror = "2.0"
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

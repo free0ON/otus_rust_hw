@@ -1,4 +1,4 @@
-// OTUS Rust hw03 0.3.0
+// OTUS Rust hw03 0.4.0
 // Implement async network communication with device simulator
 use std::any::Any;
 use std::collections::HashMap;
@@ -8,6 +8,7 @@ use std::fmt::{self, Display};
 use std::io::{Read, Write};
 use std::net::{TcpStream, UdpSocket};
 use std::sync::{Arc, Mutex};
+use tracing::{info, trace};
 
 pub trait Reportable {
     fn report(&self) -> String;
@@ -78,12 +79,14 @@ impl Home {
 
 impl Reportable for Home {
     fn report(&self) -> String {
-        format!(
+        let to_print = format!(
             "
 ==========================
 Report of {self}
 =========================="
-        )
+        );
+        info!(to_print, "Report of home");
+        to_print
     }
 }
 impl Display for Home {
@@ -185,11 +188,14 @@ impl PartialEq for Room {
 
 impl Reportable for Room {
     fn report(&self) -> String {
-        format!(
+        let to_report = format!(
             "
     ---------------------------
     Report of {self}"
-        )
+        );
+
+        trace!(to_report, "Report of room");
+        to_report
     }
 }
 
@@ -493,8 +499,10 @@ impl Socket {
         );
         match _state {
             SocketState::On => {
+                println!("Sending SET ON command to socket simulator");
                 if self.connection.write("SET ON".as_bytes()).is_ok() {
                     let mut response_buffer = [0; 1024];
+                    println!("Waiting for response from socket simulator...");
                     if self.connection.read(&mut response_buffer).is_ok() {
                         let response = String::from_utf8_lossy(&response_buffer)
                             .chars()
@@ -674,6 +682,35 @@ impl Display for Socket {
     }
 }
 
+impl Drop for Socket {
+    fn drop(&mut self) {
+        println!("Dropping socket {} {}", self.id, self.name);
+        if self.connection.write("DISCONNECT".as_bytes()).is_ok() {
+            let mut response_buffer = [0; 1024];
+            if self.connection.read(&mut response_buffer).is_ok() {
+                let response = String::from_utf8_lossy(&response_buffer)
+                    .chars()
+                    .take_while(|&c| c != '\0')
+                    .collect::<String>();
+
+                println!("Response from socket simulator: {}", response);
+                match response.as_str() {
+                    "OK" => {
+                        println!("Socket {} {} is now DISCONNECTED", self.id, self.name);
+                    }
+                    _ => {
+                        eprintln!("Unexpected response from socket simulator: {}", response);
+                    }
+                }
+            } else {
+                eprintln!("Error reading response from socket simulator");
+            }
+        } else {
+            eprintln!("Error sending SET OFF command to socket simulator");
+        }
+    }
+}
+
 impl PartialEq for Socket {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id && self.name == other.name && self.max_power == other.max_power
@@ -714,6 +751,7 @@ mod tests {
     use std::collections::HashMap;
 
     static UPDATE_INTERVAL_MS: u64 = 1000_u64;
+
     #[test]
     fn thermometer_get_temperature_test() {
         let term1 = Thermometer::new(
@@ -790,7 +828,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8101",
+            "127.0.0.1:8004",
             UPDATE_INTERVAL_MS,
         );
         let term2 = Thermometer::new(
@@ -798,7 +836,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8102",
+            "127.0.0.1:8005",
             UPDATE_INTERVAL_MS,
         );
         let socket1 = Socket::new(
@@ -831,7 +869,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8201",
+            "127.0.0.1:8006",
             UPDATE_INTERVAL_MS,
         );
         let term2 = Thermometer::new(
@@ -839,7 +877,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8202",
+            "127.0.0.1:8007",
             UPDATE_INTERVAL_MS,
         );
 
@@ -864,7 +902,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8203",
+            "127.0.0.1:8008",
             UPDATE_INTERVAL_MS,
         );
         let term4 = Thermometer::new(
@@ -872,7 +910,7 @@ mod tests {
             "Virtual thermometer",
             -50.0,
             50.0,
-            "127.0.0.1:8204",
+            "127.0.0.1:8009",
             UPDATE_INTERVAL_MS,
         );
         let socket3 = Socket::new(

@@ -1,12 +1,12 @@
 //Otus rust hw03 Thermometer network simulator
-//v 0.3.0
+//v 0.4.0
 
 use serde::Deserialize;
 use std::net::UdpSocket;
 
 #[derive(Deserialize, Debug)]
 struct Config {
-    connection: ConnectionConfig,
+    connection: Vec<ConnectionConfig>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -30,25 +30,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Config file not provided".into());
     }
 
-    let configs: Vec<Config> = args[1..]
-        .iter()
-        .map(|config_toml_file| {
-            println!("Reading config from: {}", config_toml_file);
-            let contents = std::fs::read_to_string(config_toml_file)?;
-            let config: Config = toml::from_str(&contents)?;
-            println!("Config: {:?}", config);
-            Ok(config)
-        })
-        .collect::<Result<_, Box<dyn std::error::Error>>>()?;
+    let config_file = &args[1];
+
+    let configs: Config = toml::from_str(&std::fs::read_to_string(config_file)?)?;
 
     let connections = configs
+        .connection
         .iter()
         .map(|config| {
-            let remote_address = format!("{}:{}", config.connection.ip, config.connection.port);
-            let interval_ms = config.connection.interval_ms;
-            let connection =
-                UdpSocket::bind(format!("127.0.0.1:{}", config.connection.port + 1000))
-                    .expect("Failed to bind socket");
+            let remote_address = format!("{}:{}", config.ip, config.port);
+            let interval_ms = config.interval_ms;
+            let connection = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind UDP socket");
             (connection, remote_address, interval_ms)
         })
         .collect::<Vec<(UdpSocket, String, u64)>>();
